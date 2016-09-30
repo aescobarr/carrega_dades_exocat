@@ -166,7 +166,7 @@ with open('EXOCAT_citacions-QUIQUE 2016.csv','rb') as csvfile:
         inserts_file = open("insert_citacions.sql", 'w')
         deletes_file = open("delete_citacions.sql", 'w')
         plantilla_sql_insert = "INSERT INTO public.citacions(especie,idspinvasora,grup,utmx,utmy,localitat,municipi,comarca,provincia,data,autor_s,citacio,font,referencia,observacions,tipus_cita,habitat,tipus_mort,abundancia,codi_aca,codi_estacio,ind_ha,ind_capt) VALUES ('{0}','{1}','{2}',{3},{4},'{5}','{6}','{7}','{8}','{9}','{10}','{11}','{12}','{13}','{14}','{15}','{16}','{17}','{18}','{19}','{20}',{21},{22});"
-        plantilla_sql_delete = "DELETE FROM public.citacions WHERE especie='{0}' and idspinvasora='{1}' and grup='{2}' and utmx={3} utmy={4} and localitat='{5}' and municipi='{6}' and comarca='{7}' and provincia='{8}' and data='{9}' and autor_s='{10}' and citacio='{11}' and font='{12}' and referencia='{13}' and observacions='{14}' and tipus_cita='{15}' and habitat='{16}' and tipus_mort='{17}' and abundancia='{18}' and codi_aca='{19}' and codi_estacio='{20}' and ind_ha={21} and ind_capt={22};"
+        plantilla_sql_delete = "DELETE FROM public.citacions WHERE especie='{0}' and idspinvasora='{1}' and grup='{2}' and utmx={3} and utmy={4} and localitat='{5}' and municipi='{6}' and comarca='{7}' and provincia='{8}' and data='{9}' and autor_s='{10}' and citacio='{11}' and font='{12}' and referencia='{13}' and observacions='{14}' and tipus_cita='{15}' and habitat='{16}' and tipus_mort='{17}' and abundancia='{18}' and codi_aca='{19}' and codi_estacio='{20}' and ind_ha={21} and ind_capt={22};"
         iterlines = iter(file_array)
         next(iterlines)
         print("Escrivint fitxer...")

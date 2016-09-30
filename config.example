@@ -1,0 +1,6 @@
+params = dict(
+  db_host = "database_host",
+  db_name = "database_name",
+  db_user = "database_user",
+  db_password = "database_password",
+)

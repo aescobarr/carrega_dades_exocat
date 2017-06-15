@@ -243,7 +243,7 @@ def translate_status(estatus):
     if estatus == 'Adventícia (citació puntual)':
         return 'Adven_cit punt'
     if estatus == 'Adventícia':
-        return 'ADVEN'
+        return 'Adven'
     if estatus == 'Translocada(adventícia)':
         return 'TRANS_adv'
     if estatus == 'Translocada':
@@ -475,6 +475,8 @@ def genera_sentencia_regionativa(fila,tesaure_zonageografica):
 
 def genera_sentencia_habitat(fila):
     habitat_candidat = fila[18]
+    if habitat_candidat.strip() == '':
+        return "--HABITAT per {0} està en blanc".format(fila[3].strip())
     habitat_candidat = habitat_candidat.replace("'", "''")
     id_habitat = get_id_habitat_de_nom_habitat(habitat_candidat)
     if id_habitat == '':
@@ -774,15 +776,15 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
 def main():
     cached_taxon_resolution_results = {}
     #genera_sentencies_presencia(cached_taxon_resolution_results,10)
-    file_llistat_exotiques = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/llistat_exotiques_exocat_dec_2017.csv'
-    file_citacions = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_definitiu_fusionat.csv'
-    file_presencia_1_1 = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_utm_1_1.csv'
-    file_presencia_10_10 = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_utm_10_10.csv'
-    dir_resultats = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/'
-    #genera_sentencies_llistat_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
+    file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/llistat_exotiques_exocat_dec_2017.csv'
+    #file_citacions = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_definitiu_fusionat.csv'
+    #file_presencia_1_1 = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_utm_1_1.csv'
+    #file_presencia_10_10 = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_utm_10_10.csv'
+    dir_resultats = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/'
+    genera_sentencies_llistat_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_citacions(file_citacions,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_presencia(file_presencia_1_1, dir_resultats, cached_taxon_resolution_results,1)
-    genera_sentencies_presencia(file_presencia_10_10, dir_resultats, cached_taxon_resolution_results, 10)
+    #genera_sentencies_presencia(file_presencia_10_10, dir_resultats, cached_taxon_resolution_results, 10)
 
 if __name__=='__main__':
     main()

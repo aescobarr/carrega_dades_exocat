@@ -448,9 +448,11 @@ def genera_sentencia_regionativa(fila,tesaure_zonageografica):
     if regionativa_1_candidat.split() != '':
         candidats.append(regionativa_1_candidat)
     if regionativa_2_candidat.split() != '':
-        candidats.append(regionativa_2_candidat)
+        if not regionativa_2_candidat.strip() in candidats:
+            candidats.append(regionativa_2_candidat)
     if regionativa_3_candidat.split() != '':
-        candidats.append(regionativa_3_candidat)
+        if not regionativa_3_candidat.strip() in candidats:
+            candidats.append(regionativa_3_candidat)
     for candidat in candidats:
         id_c_zonageografica = get_id_zona_geografica_de_nom(candidat)
         idregionativa = uuid.uuid1()

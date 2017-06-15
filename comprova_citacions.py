@@ -92,8 +92,8 @@ def split_nom_especie(sp_name):
 
 def get_id_invasora(sp_name):
     elements_nom = sp_name.split(' ')
-    genere = elements_nom[0]
-    especie = elements_nom[1]
+    genere = elements_nom[0].strip()
+    especie = elements_nom[1].strip()
     subespecie = ''
     if (len(elements_nom) == 3):
         subespecie = elements_nom[2]
@@ -139,6 +139,8 @@ def get_id_invasora(sp_name):
 def comprova_format_coordenades(row):
     utmx = row[3].strip()
     utmy = row[4].strip()
+    if "," in utmx or "," in utmy:
+        return False
     try:
         float(utmx)
         float(utmy)
@@ -157,7 +159,9 @@ def fila_presencia_es_a_la_base_dades(row):
 def fila_es_a_la_base_dades(row):
     conn = psycopg2.connect(conn_string)
     cursor = conn.cursor()
-    cursor.execute("""SELECT id FROM public.citacions WHERE especie=%s and utmx=%s and utmy=%s;""",(row[0].strip(),row[3].strip(),row[4].strip(),))
+    query = "SELECT id FROM public.citacions WHERE especie='{0}' and utmx={1} and utmy={2};"
+    f_query = query.format(row[0].strip(),float(row[3].strip()),float(row[4].strip()),)
+    cursor.execute(f_query)
     results = cursor.fetchall()
     return len(results) > 0
 
@@ -267,13 +271,9 @@ def translate_status(estatus):
     raise Exception('Estatus ' + estatus + ' desconegut')
 
 def translate_catalogo_nacional(catalogo):
-    if catalogo.strip() == '':
-        return 'NULL'
     if catalogo.strip().startswith('S'):
         return 'S'
-    if catalogo.strip().startswith('N'):
-        return 'N'
-    return 'NULL'
+    return 'N'
 
 def check_status_is_present(idstatus):
     conn = psycopg2.connect(conn_string)
@@ -550,14 +550,12 @@ def genera_sentencies_llistat_exotiques(file,dir_resultats,cached_taxon_resoluti
 
 
 def genera_sentencies_citacions(file,dir_resultats,cached_taxon_resolution_results):
-    #with open('EXOCAT_citacions-QUIQUE 2016.csv','rb') as csvfile:
     with open(file, 'rb') as csvfile:
         fails_codi_sp = []
         fails_utm_format = []
         fails_row_exists = []
         fails_especie_no_existeix = []
         file_array = []
-        cached_taxon_resolution_results = {}
         reader = csv.reader(csvfile, delimiter=';', quotechar='"')
         row_num = 0
 
@@ -565,7 +563,24 @@ def genera_sentencies_citacions(file,dir_resultats,cached_taxon_resolution_resul
         print("Llegint fitxer de dades ...")
         for row in reader:
             file_array.append(row)
+            success_codi_sp = False
+            success_format_coord = False
+            if row_num != 0:
+                if not comprova_codi_esp(row):
+                    fails_codi_sp.append(row_num)
+                else:
+                    success_codi_sp = True
 
+                if not comprova_format_coordenades(row):
+                    fails_utm_format.append(row_num)
+                else:
+                    success_format_coord = True
+
+                if success_codi_sp and success_format_coord:
+                    if fila_es_a_la_base_dades(row):
+                        fails_row_exists.append(row_num)
+
+            '''
             if row_num != 0 and fila_es_a_la_base_dades(row):
                 fails_row_exists.append(row_num)
             else:
@@ -576,6 +591,7 @@ def genera_sentencies_citacions(file,dir_resultats,cached_taxon_resolution_resul
                 if not comprova_format_coordenades(row):
                     if row_num != 0:
                         fails_utm_format.append(row_num)
+            '''
             #print_one_liner("Processant fila " + str(row_num) + " ...")
             print("Processant fila " + str(row_num) + " ...")
             row_num += 1
@@ -590,12 +606,14 @@ def genera_sentencies_citacions(file,dir_resultats,cached_taxon_resolution_resul
             try:
                 id_spinvasora = cached_taxon_resolution_results[sp_name]
                 if id_spinvasora == '':
-                    fails_especie_no_existeix.append(sp_name)
+                    if sp_name not in fails_especie_no_existeix:
+                        fails_especie_no_existeix.append(sp_name)
             except KeyError:
                 print("Recuperant codi especie invasora per " + sp_name)
                 id_spinvasora = get_id_invasora(sp_name)
                 if id_spinvasora == '':
-                    fails_especie_no_existeix.append(sp_name)
+                    if sp_name not in fails_especie_no_existeix:
+                        fails_especie_no_existeix.append(sp_name)
                 else:
                     cached_taxon_resolution_results[sp_name] = id_spinvasora
 
@@ -658,11 +676,9 @@ def genera_sentencies_citacions(file,dir_resultats,cached_taxon_resolution_resul
                     except IndexError:
                         print ("Error afegint linia - " + str(line_num) + " item " + str(item_num))
                 line_num += 1
-        print cached_taxon_resolution_results
 
 def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_results,mida_malla):
     mida_malla_str = str(mida_malla)
-    #with open('EXOCAT_citacions_2016_utm_' + mida_malla_str + '_' + mida_malla_str + '.csv', 'rb') as csvfile:
     with open(file, 'rb') as csvfile:
         file_array = []
         fails_codi_sp = []
@@ -721,12 +737,14 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
             try:
                 id_spinvasora = cached_taxon_resolution_results[sp_name]
                 if id_spinvasora == '':
-                    fails_especie_no_existeix.append(sp_name)
+                    if sp_name not in fails_especie_no_existeix:
+                        fails_especie_no_existeix.append(sp_name)
             except KeyError:
                 print("Recuperant codi especie invasora per " + sp_name)
                 id_spinvasora = get_id_invasora(sp_name)
                 if id_spinvasora == '':
-                    fails_especie_no_existeix.append(sp_name)
+                    if sp_name not in fails_especie_no_existeix:
+                        fails_especie_no_existeix.append(sp_name)
                 else:
                     cached_taxon_resolution_results[sp_name] = id_spinvasora
         print cached_taxon_resolution_results
@@ -777,16 +795,17 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
 
 def main():
     cached_taxon_resolution_results = {}
+    cached_taxon_resolution_results['Caulerpa cylindracea'] = 'Caul_race'
     #genera_sentencies_presencia(cached_taxon_resolution_results,10)
-    file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/llistat_exotiques_exocat_dec_2017.csv'
-    #file_citacions = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_definitiu_fusionat.csv'
-    #file_presencia_1_1 = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_utm_1_1.csv'
-    #file_presencia_10_10 = '/home/webuser/python/carrega_dades_exocat/dades_2017/EXOCAT_2017/EXOCAT_citacions_2017_utm_10_10.csv'
+    #file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/llistat_exotiques_exocat_dec_2017.csv'
+    #file_citacions = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/llistat_citacions_exocat_dec_2017.csv'
+    #file_presencia_1_1 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/EXOCAT_citacions_2017_utm_1_1.csv'
+    file_presencia_10_10 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/EXOCAT_citacions_2017_utm_10_10.csv'
     dir_resultats = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/'
-    genera_sentencies_llistat_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
+    #genera_sentencies_llistat_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_citacions(file_citacions,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_presencia(file_presencia_1_1, dir_resultats, cached_taxon_resolution_results,1)
-    #genera_sentencies_presencia(file_presencia_10_10, dir_resultats, cached_taxon_resolution_results, 10)
+    genera_sentencies_presencia(file_presencia_10_10, dir_resultats, cached_taxon_resolution_results, 10)
 
 if __name__=='__main__':
     main()

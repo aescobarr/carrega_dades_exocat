@@ -180,7 +180,7 @@ def get_insert_taula_mtaxon(row):
 
 def translate_status(estatus):
     if estatus.strip() == '':
-        return ''
+        return 'BLANC'
     estatus = estatus.strip()
     if estatus == 'Arqueòfit/Arqueozou?':
         return 'ARQUEF_ARQUEO?'
@@ -190,13 +190,13 @@ def translate_status(estatus):
         return 'POSSD'
     if estatus == 'Possible reintroduïda':
         return 'REINT?'
-    if estatus == 'No establerta(exòtica?)':
+    if estatus == 'No establerta(exòtica?)' or estatus=='No establerta (exòtica?)':
         return 'NO_EST/EXO?'
-    if estatus == 'No establerta':
+    if estatus == 'No establerta' or estatus == 'No Establerta':
         return 'NO_EST'
     if estatus == 'Naturalitzada dubtosa':
         return 'Natur?'
-    if estatus == 'Naturalitzada(citació puntual)':
+    if estatus == 'Naturalitzada(citació puntual)' or estatus == 'Naturalitzada (citació puntual)':
         return 'Natur_cit punt'
     if estatus == 'Naturalitzada':
         return 'Natur'
@@ -206,13 +206,15 @@ def translate_status(estatus):
         return 'INV'
     if estatus == 'Introduïda dubtosa':
         return 'INTROD?'
+    if estatus == 'Introduïda(citació dubtosa)' or estatus=='Introduïda (citació dubtosa)':
+        return 'INTROD_dubt'
     if estatus == 'Introduïda(potencialment invasora)':
         return 'INTROD_POTEN'
-    if estatus == 'Introduïda(possiblement només plantada)':
+    if estatus == 'Introduïda(possiblement només plantada)' or estatus=='Introduïda (possiblement només plantada)':
         return 'INTROD_plant'
-    if estatus == 'Introduïda(possiblement desapareguda)':
+    if estatus == 'Introduïda(possiblement desapareguda)' or estatus=='Introduïda (possiblement desapareguda)':
         return 'INTROD_desap'
-    if estatus == 'Introduïda(eliminada del medi)':
+    if estatus == 'Introduïda(eliminada del medi)' or estatus=='Introduïda (eliminada del medi)':
         return 'INTROD_elim'
     if estatus == 'Introduïda(citacions antigues)':
         return 'INTROD_antic'
@@ -240,15 +242,15 @@ def translate_status(estatus):
         return 'CIT_PUNT'
     if estatus == 'Adventícia dubtosa':
         return 'Adven?'
-    if estatus == 'Adventícia(possiblement desapareguda)':
+    if estatus == 'Adventícia(possiblement desapareguda)' or estatus=='Adventícia (possiblement desapareguda)':
         return 'Adven_desap'
-    if estatus == 'Adventícia(en regressió)':
+    if estatus == 'Adventícia(en regressió)' or estatus=='Adventícia (en regressió)':
         return 'Adven_regre'
     if estatus == 'Adventícia (citació puntual)':
         return 'Adven_cit punt'
     if estatus == 'Adventícia':
         return 'Adven'
-    if estatus == 'Translocada(adventícia)':
+    if estatus == 'Translocada(adventícia)' or estatus=='Translocada (adventícia)':
         return 'TRANS_adv'
     if estatus == 'Translocada':
         return 'TRANS'
@@ -268,7 +270,23 @@ def translate_status(estatus):
         return 'NEOF_NEO'
     if estatus=='Nativa':
         return 'NATIVA'
-    raise Exception('Estatus ' + estatus + ' desconegut')
+    if estatus=='Citació puntual (potencialment invasora)':
+        return 'CIT_PUNT_POTEN'
+    if estatus=='Citació puntual (possiblement desapareguda)':
+        return 'DESAP'
+    if estatus=='Introduïda(citacions antigues)' or estatus=='Introduïda (citacions antigues)':
+        return 'INTROD_antic'
+    if estatus=='Introduïda (potencialment invasora)':
+        return 'INTROD_POTEN'
+    if estatus == 'Establerta (localment invasora)':
+        return 'EST(INV)'
+    if estatus == 'Translocada?':
+        return 'TRANS_?'
+    if estatus == 'Translocada (possiblement desapareguda)':
+        return 'TRANS_desap'
+    if estatus == 'Establerta(exòtica?)' or estatus == 'Establerta (exòtica?)':
+        return 'EST/EXO?'
+    raise Exception('Estatus * ' + estatus + ' * desconegut')
 
 def translate_catalogo_nacional(catalogo):
     if catalogo.strip().startswith('S'):
@@ -286,6 +304,20 @@ def cleanup_observacions(observacions):
     observacions = observacions.replace("'", "''")
     observacions = observacions.replace("’", "''")
     return observacions
+
+def get_update_taula_spinvasora(row):
+    idestatushistoric = translate_status(row[19])
+    if not check_status_is_present(idestatushistoric):
+        raise Exception(row[19] + " " + idestatushistoric + " no es a la base de dades, cal afegir el codi --> INSERT INTO sipan_mexocat.estatus(id,nom) VALUES('" + idestatushistoric + "','" + row[19] + "');")
+    idestatuscatalunya = translate_status(row[20])
+    if not check_status_is_present(idestatuscatalunya):
+        raise Exception(idestatuscatalunya + ' no es a la base de dades, cal afegir el codi')
+    idestatusgeneral = idestatuscatalunya
+    observacions = cleanup_observacions(row[24])
+    present_catalogo = translate_catalogo_nacional(row[22])
+    plantilla = "UPDATE sipan_mexocat.especieinvasora set idestatushistoric='{0}',idestatuscatalunya='{1}',idimatgeprincipal={2},observacions='{3}',present_catalogo=" + ( "'{4}'" if present_catalogo == 'NULL' else "'{4}'") + ",idestatusgeneral='{5}' WHERE id='{6}';"
+    str_plantilla = plantilla.format(idestatushistoric, idestatuscatalunya, 'NULL', observacions, present_catalogo, idestatusgeneral, row[3].strip())
+    return str_plantilla
 
 def get_insert_taula_spinvasora(row):
     idestatushistoric = translate_status(row[19])
@@ -486,6 +518,36 @@ def genera_sentencia_habitat(fila):
     plantilla_sql = "INSERT INTO SIPAN_MEXOCAT.HABITAT(ID,HABITAT) VALUES ('{0}','{1}');\nINSERT INTO SIPAN_MEXOCAT.HABITATESPECIE(idspinvasora,idhabitat) VALUES ('{2}','{3}');"
     str_plantilla = plantilla_sql.format(id_habitat,habitat_candidat,fila[3].strip(),id_habitat)
     return str_plantilla
+
+
+def genera_sentencies_actualitzacio_estatus_exotiques(file,dir_resultats,cached_taxon_resolution_results):
+    with open(file, 'rb') as csvfile:
+        file_array = []
+        row_num = 0
+        fails_codi_sp = []
+        reader = csv.reader(csvfile, delimiter=';', quotechar='"')
+        print("Llegint fitxer de dades ...")
+        for row in reader:
+            file_array.append(row)
+            if not check_codi_especie(row[3].strip()) and row_num != 0:
+                print "Fila " + str(row_num) + " codi especie " + row[3] + " id_sp " + row[4] + " no es a taula invasores "
+                fails_codi_sp.append(row_num)
+
+        if len(fails_codi_sp) > 0:
+            print "Afegeix les especies que falten i torna-ho a intentar, sortint..."
+            return
+        update_estatus_taxon = open(dir_resultats + "/update_status_taxon.sql", 'w')
+        for row in file_array[1:]:
+            row_num = row_num + 1
+            try:
+                update = get_update_taula_spinvasora(row)
+            except Exception:
+                print "Excepcio a fila - " + str(row_num)
+                raise
+            update_estatus_taxon.write(update)
+            update_estatus_taxon.write("\n")
+
+
 
 def genera_sentencies_llistat_exotiques(file,dir_resultats,cached_taxon_resolution_results):
     with open(file, 'rb') as csvfile:
@@ -711,7 +773,32 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
         cached_taxon_resolution_results['Asparagus asparagoides'] = 'Aspa_aspa'
         cached_taxon_resolution_results['Opuntia lindheimeri var. linguliformis'] = 'Opun_lind'
         cached_taxon_resolution_results['Symphocarpus albus'] = 'Symp_albu'
-
+        cached_taxon_resolution_results['Cylindropuntia pallida'] = 'Cyli_tuni'
+        cached_taxon_resolution_results['Corbicula fluminalis'] = 'Corb_flum'
+        cached_taxon_resolution_results['Arcuatula senhousia'] = 'Musc_senh'
+        cached_taxon_resolution_results['Austrocylindropuntia subulata'] = 'Opun_subu'
+        cached_taxon_resolution_results['Dactylopius opuntiae'] = 'Dact_opun'
+        cached_taxon_resolution_results['Echinopsis eyriesii'] = 'Echi_eyri'
+        cached_taxon_resolution_results['Echinopsis schickendantzii'] = 'Echi_schi'
+        cached_taxon_resolution_results['Echinopsis spachiana'] = 'Echi_spac'
+        cached_taxon_resolution_results['Opuntia leucotricha'] = 'Opun_leuc'
+        cached_taxon_resolution_results['Opuntia phaeacantha'] = 'Opun_phae'
+        cached_taxon_resolution_results['Opuntia schickendantzii'] = 'Opun_schi'
+        cached_taxon_resolution_results['Opuntia tuna'] = 'Opun_tuna'
+        cached_taxon_resolution_results['Planorbella duryiduryi'] = 'Plan_dury'
+        cached_taxon_resolution_results['Hawaiia minuscula'] = 'Hawa_minu'
+        cached_taxon_resolution_results['Zonitoides arboreus'] = 'Zoni_arbo'
+        cached_taxon_resolution_results['Lymnaea stagnalis'] = 'Lymn_stag'
+        cached_taxon_resolution_results['Gibbula umbilicalis'] = 'Gibb_umbi'
+        cached_taxon_resolution_results['Gibbula cineraria'] = 'Gibb_cine'
+        cached_taxon_resolution_results['Phorcus lineatus'] = 'Phor_line'
+        cached_taxon_resolution_results['Littorina obtusata'] = 'Litt_obtu'
+        cached_taxon_resolution_results['Littorina littorea'] = 'Litt_litt'
+        cached_taxon_resolution_results['Nucella lapillus'] = 'Nuce_lapi'
+        cached_taxon_resolution_results['Anadara transversa'] = 'Anad_tran'
+        cached_taxon_resolution_results['Crepidula fornicata'] = 'Crep_forn'
+        cached_taxon_resolution_results['Crepipatella dilatata'] = 'Crep_dila'
+        cached_taxon_resolution_results['Pollia assimilis'] = 'Poll_assi'
 
         #read file, save errors
         print("Llegint fitxer de dades ...")
@@ -797,15 +884,17 @@ def main():
     cached_taxon_resolution_results = {}
     cached_taxon_resolution_results['Caulerpa cylindracea'] = 'Caul_race'
     #genera_sentencies_presencia(cached_taxon_resolution_results,10)
-    #file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/llistat_exotiques_exocat_dec_2017.csv'
-    #file_citacions = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/llistat_citacions_exocat_dec_2017.csv'
-    #file_presencia_1_1 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/EXOCAT_citacions_2017_utm_1_1.csv'
-    file_presencia_10_10 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/EXOCAT_citacions_2017_utm_10_10.csv'
-    dir_resultats = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/'
+    file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_2/llistat_exotiques_exocat_dec_2017.csv'
+    #file_citacions = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_2/llistat_citacions_exocat_dec_2017.csv'
+    #file_presencia_1_1 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_2/exocat_citacions_2017_utm_1_1.csv'
+    #file_presencia_10_10 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades/EXOCAT_citacions_2017_utm_10_10.csv'
+    dir_resultats = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_2/'
     #genera_sentencies_llistat_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_citacions(file_citacions,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_presencia(file_presencia_1_1, dir_resultats, cached_taxon_resolution_results,1)
-    genera_sentencies_presencia(file_presencia_10_10, dir_resultats, cached_taxon_resolution_results, 10)
+    #genera_sentencies_presencia(file_presencia_10_10, dir_resultats, cached_taxon_resolution_results, 10)
+    genera_sentencies_actualitzacio_estatus_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
+
 
 if __name__=='__main__':
     main()

@@ -1,0 +1,7 @@
+-- Eliminar repeticions a la taula de regions natives
+-- creem backup de la taula original, eliminant entrades repetides (agafem els elements diferents combinats de idespecieinvasora,idzonageografica)
+create table backup_regionativa as select distinct on (idespecieinvasora,idzonageografica) id,idespecieinvasora,idzonageografica FROM sipan_mexocat.regionativa;
+-- buidem taula original
+DELETE from sipan_mexocat.regionativa;
+-- restaurem des de backup sense repeticions
+insert into sipan_mexocat.regionativa (select * from backup_regionativa);

@@ -37,6 +37,15 @@ def fila_es_buida(row):
     return True
 
 
+def check_regionativa_no_existeix(idespecieinvasora,idzonageografica):
+    conn = psycopg2.connect(conn_string)
+    cursor = conn.cursor()
+    cursor.execute("""SELECT * FROM sipan_mexocat.regionativa WHERE idespecieinvasora=%s and idzonageografica=%s;""", (idespecieinvasora,idzonageografica,))
+    results = cursor.fetchall()
+    if (len(results) == 0):
+        return True
+    return False
+
 def check_codi_especie(id):
     conn = psycopg2.connect(conn_string)
     cursor = conn.cursor()
@@ -310,6 +319,8 @@ def translate_status(estatus):
         return 'POSS_ARQUEF'
     if estatus == 'Possiblement translocada (Arqueòfit)':
         return 'TRANS?_ARQUEF'
+    if estatus == 'Introduïda(sense més dades)' or 'Introduïda (sense més dades)':
+        return 'INT_SMD'
     raise Exception('Estatus * ' + estatus + ' * desconegut')
 
 def translate_catalogo_nacional(catalogo):
@@ -343,7 +354,7 @@ def get_update_taula_spinvasora(row):
     str_plantilla = plantilla.format(idestatushistoric, idestatuscatalunya, observacions, present_catalogo, idestatusgeneral, row[3].strip())
     return str_plantilla
 
-def get_insert_taula_spinvasora(row):
+def get_insert_taula_spinvasora(row, idtaxon=None):
     idestatushistoric = translate_status(row[19])
     if not check_status_is_present(idestatushistoric):
         raise Exception(row[19] + ' ' + idestatushistoric + ' no es a la base de dades, cal afegir el codi')
@@ -354,7 +365,10 @@ def get_insert_taula_spinvasora(row):
     observacions = cleanup_observacions(row[24])
     present_catalogo = translate_catalogo_nacional(row[22])
     plantilla = "INSERT INTO sipan_mexocat.especieinvasora(id,idtaxon,idestatushistoric,idestatuscatalunya,idimatgeprincipal,observacions,present_catalogo,idestatusgeneral) VALUES ('{0}','{1}','{2}','{3}',{4},'{5}'," + ("'{6}'" if present_catalogo == 'NULL' else "'{6}'") + ",'{7}');"
-    str_plantilla = plantilla.format(row[3].strip(), row[3].strip(), idestatushistoric, idestatuscatalunya, 'NULL', observacions, present_catalogo, idestatusgeneral)
+    if idtaxon is None:
+        str_plantilla = plantilla.format(row[3].strip(), row[3].strip(), idestatushistoric, idestatuscatalunya, 'NULL', observacions, present_catalogo, idestatusgeneral)
+    else:
+        str_plantilla = plantilla.format(row[3].strip(), idtaxon, idestatushistoric, idestatuscatalunya, 'NULL', observacions, present_catalogo, idestatusgeneral)
     return str_plantilla
 
 def get_id_grup_de_nom_grup(nomgrup):
@@ -441,7 +455,7 @@ def genera_sentencia_viaentrada(fila):
         str_plantilla = plantilla_sql.format(idviaentradaespecie, fila[3].strip(), id_viaentrada)
     return str_plantilla
 
-def genera_sentencies_noms(fila):
+def genera_sentencies_noms(fila,idtaxon=None):
     candidat_nom_ca = fila[6].strip().replace("'", "''")
     candidat_nom_es = fila[7].strip().replace("'", "''")
     candidat_nom_en = fila[8].strip().replace("'", "''")
@@ -480,17 +494,26 @@ def genera_sentencies_noms(fila):
 
     if valor_nom_ca != 'NULL':
         plantilla_sql = "INSERT INTO sipan_mtaxons.nomvulgartaxon(id,idtaxon,idnomvulgar) VALUES ('{0}','{1}',{2});"
-        str_plantilla = plantilla_sql.format(uuid.uuid1(), fila[3].strip(), valor_nom_ca)
+        if idtaxon is None:
+            str_plantilla = plantilla_sql.format(uuid.uuid1(), fila[3].strip(), valor_nom_ca)
+        else:
+            str_plantilla = plantilla_sql.format(uuid.uuid1(), idtaxon, valor_nom_ca)
         resultats.append(str_plantilla)
 
     if valor_nom_en != 'NULL':
         plantilla_sql = "INSERT INTO sipan_mtaxons.nomvulgartaxon(id,idtaxon,idnomvulgar) VALUES ('{0}','{1}',{2});"
-        str_plantilla = plantilla_sql.format(uuid.uuid1(), fila[3].strip(), valor_nom_en)
+        if idtaxon is None:
+            str_plantilla = plantilla_sql.format(uuid.uuid1(), fila[3].strip(), valor_nom_en)
+        else:
+            str_plantilla = plantilla_sql.format(uuid.uuid1(), idtaxon, valor_nom_en)
         resultats.append(str_plantilla)
 
     if valor_nom_es != 'NULL':
         plantilla_sql = "INSERT INTO sipan_mtaxons.nomvulgartaxon(id,idtaxon,idnomvulgar) VALUES ('{0}','{1}',{2});"
-        str_plantilla = plantilla_sql.format(uuid.uuid1(), fila[3].strip(), valor_nom_es)
+        if idtaxon is None:
+            str_plantilla = plantilla_sql.format(uuid.uuid1(), fila[3].strip(), valor_nom_es)
+        else:
+            str_plantilla = plantilla_sql.format(uuid.uuid1(), idtaxon, valor_nom_es)
         resultats.append(str_plantilla)
 
     return resultats
@@ -501,6 +524,8 @@ def genera_sentencia_regionativa(fila,tesaure_zonageografica):
     regionativa_3_candidat = fila[16]
     candidats = []
     resultats = []
+
+    already_in = Set()
     if regionativa_1_candidat.split() != '':
         candidats.append(regionativa_1_candidat)
     if regionativa_2_candidat.split() != '':
@@ -527,7 +552,10 @@ def genera_sentencia_regionativa(fila,tesaure_zonageografica):
         else:
             plantilla_sql = "INSERT INTO sipan_mexocat.regionativa(id,idespecieinvasora,idzonageografica) VALUES ('{0}','{1}','{2}');"
             str_plantilla = plantilla_sql.format(idregionativa,fila[3].strip(),id_c_zonageografica)
-        resultats.append(str_plantilla)
+        if check_regionativa_no_existeix(fila[3].strip(),id_c_zonageografica):
+            if not fila[3].strip() + id_c_zonageografica in already_in:
+                resultats.append(str_plantilla)
+                already_in.add(fila[3].strip() + id_c_zonageografica)
     return resultats
 
 
@@ -622,9 +650,11 @@ def genera_sentencies_llistat_exotiques(file,dir_resultats,cached_taxon_resoluti
                 inserts_file_spinvasora.write(get_insert_taula_spinvasora(fila))
                 inserts_file_spinvasora.write("\n")
             else:
-                print "Id invasora " + get_id_invasora(fila[4])
-                print "Sentencia insert a sipan_mexocat.especieinvasora ---> " + get_insert_taula_spinvasora(fila)
-                inserts_file_spinvasora.write(get_insert_taula_spinvasora(fila))
+                #print "Id invasora " + get_id_invasora(fila[4])
+                print "Id taxon ---> " + idtaxon
+                str_insert = get_insert_taula_spinvasora(fila, idtaxon)
+                print "Sentencia insert a sipan_mexocat.especieinvasora ---> " + str_insert
+                inserts_file_spinvasora.write(str_insert)
                 inserts_file_spinvasora.write("\n")
             inserts_grup.write(genera_sentencia_grup(fila))
             inserts_grup.write("\n")
@@ -636,7 +666,10 @@ def genera_sentencies_llistat_exotiques(file,dir_resultats,cached_taxon_resoluti
                 #inserts_regionativa.write("\n")
             inserts_viaentrada.write(genera_sentencia_viaentrada(fila))
             inserts_viaentrada.write("\n")
-            sentencies_noms = genera_sentencies_noms(fila)
+            if idtaxon == '':
+                sentencies_noms = genera_sentencies_noms(fila)
+            else:
+                sentencies_noms = genera_sentencies_noms(fila, idtaxon)
             for sentencia_nom in sentencies_noms:
                 inserts_noms.write(sentencia_nom)
                 inserts_noms.write("\n")
@@ -845,6 +878,8 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
         cached_taxon_resolution_results['Hermetia illuscens'] = 'Herm_illu'
         cached_taxon_resolution_results['Succinea (Calcisuccinea) sp'] = 'Succ_sp'
         cached_taxon_resolution_results['Amelichloa caudata'] = 'Amel_caud'
+        cached_taxon_resolution_results['Xiphophorus maculatus'] = 'Xiph_sp'
+        cached_taxon_resolution_results['Eclipta prostrata'] = '10958'
 
         #read file, save errors
         print("Llegint fitxer de dades ...")
@@ -930,11 +965,11 @@ def main():
     cached_taxon_resolution_results = {}
     #cached_taxon_resolution_results['Caulerpa cylindracea'] = 'Caul_race'
     #file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_3/llistat_exotiques_exocat_dec_2017.csv'
-    file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_4/llistat_exotiques_exocat_dec_2018.csv'
-    #file_citacions = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_4/exocat_citacions_2018.csv'
-    #file_presencia_1_1 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_4/exocat_citacions_2018_utm_1_1.csv'
-    #file_presencia_10_10 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_4/exocat_citacions_2018_utm_10_10.csv'
-    dir_resultats = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_4/'
+    file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/llistat_exotiques_exocat_dec_2018.csv'
+    #file_citacions = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/exocat_citacions_2018.csv'
+    #file_presencia_1_1 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/exocat_citacions_2018_utm_1_1.csv'
+    file_presencia_10_10 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/exocat_citacions_2018_utm_10_10.csv'
+    dir_resultats = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/'
     #genera_sentencies_llistat_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_citacions(file_citacions,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_presencia(file_presencia_1_1, dir_resultats, cached_taxon_resolution_results,1)

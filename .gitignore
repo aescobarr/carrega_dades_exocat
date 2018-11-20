@@ -2,4 +2,5 @@ config.py
 *.csv
 *.sql
 *.pyc
+.idea/*
 actualitzacio_dades_*/

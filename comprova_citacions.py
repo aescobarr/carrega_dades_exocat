@@ -99,10 +99,22 @@ def split_nom_especie(sp_name):
         result['subespecie'] = subespecie
     return result
 
+
+def get_id_invasora_codi_oracle(codi_oracle):
+    conn = psycopg2.connect(conn_string)
+    cursor = conn.cursor()
+    cursor.execute("""SELECT id FROM sipan_mexocat.especieinvasora WHERE idtaxon=%s;""", (codi_oracle,))
+    cursor_rows = cursor.fetchall()
+    if len(cursor_rows) == 0:
+        return ''
+    else:
+        return cursor_rows[0]
+
+
 def get_id_invasora(sp_name):
     elements_nom = sp_name.split(' ')
-    genere = elements_nom[0].strip()
-    especie = elements_nom[1].strip()
+    genere = elements_nom[0].replace('\xc2\xa0', ' ').strip()
+    especie = elements_nom[1].replace('\xc2\xa0', ' ').strip()
     subespecie = ''
     if (len(elements_nom) == 3):
         subespecie = elements_nom[2]
@@ -114,9 +126,9 @@ def get_id_invasora(sp_name):
     conn = psycopg2.connect(conn_string)
     cursor = conn.cursor()
     if subespecie != '':
-        cursor.execute("""SELECT * FROM sipan_mtaxons.taxon WHERE genere=%s and especie=%s and subespecie=%s;""",(genere, especie, subespecie))
+        cursor.execute("""SELECT * FROM sipan_mtaxons.taxon WHERE trim(both from genere)=%s and trim(both from especie)=%s and trim(both from subespecie)=%s;""",(genere, especie, subespecie))
     else:
-        cursor.execute("""SELECT * FROM sipan_mtaxons.taxon WHERE genere=%s and especie=%s;""", (genere, especie))
+        cursor.execute("""SELECT * FROM sipan_mtaxons.taxon WHERE trim(both from genere)=%s and trim(both from especie)=%s;""", (genere, especie))
     cursor_rows = cursor.fetchall()
     if len(cursor_rows) == 0:
         return ''
@@ -348,7 +360,7 @@ def get_update_taula_spinvasora(row):
     if not check_status_is_present(idestatuscatalunya):
         raise Exception(idestatuscatalunya + ' no es a la base de dades, cal afegir el codi')
     idestatusgeneral = idestatuscatalunya
-    observacions = cleanup_observacions(row[24])
+    observacions = cleanup_observacions(row[25])
     present_catalogo = translate_catalogo_nacional(row[22])
     plantilla = "UPDATE sipan_mexocat.especieinvasora set idestatushistoric='{0}',idestatuscatalunya='{1}',observacions='{2}',present_catalogo=" + ( "'{3}'" if present_catalogo == 'NULL' else "'{3}'") + ",idestatusgeneral='{4}' WHERE id='{5}';"
     str_plantilla = plantilla.format(idestatushistoric, idestatuscatalunya, observacions, present_catalogo, idestatusgeneral, row[3].strip())
@@ -362,7 +374,7 @@ def get_insert_taula_spinvasora(row, idtaxon=None):
     if not check_status_is_present(idestatuscatalunya):
         raise Exception(idestatuscatalunya + ' no es a la base de dades, cal afegir el codi')
     idestatusgeneral = idestatuscatalunya
-    observacions = cleanup_observacions(row[24])
+    observacions = cleanup_observacions(row[25])
     present_catalogo = translate_catalogo_nacional(row[22])
     plantilla = "INSERT INTO sipan_mexocat.especieinvasora(id,idtaxon,idestatushistoric,idestatuscatalunya,idimatgeprincipal,observacions,present_catalogo,idestatusgeneral) VALUES ('{0}','{1}','{2}','{3}',{4},'{5}'," + ("'{6}'" if present_catalogo == 'NULL' else "'{6}'") + ",'{7}');"
     if idtaxon is None:
@@ -423,6 +435,9 @@ def get_idgrup_excepcio(grup_candidat):
     return{
         'Invertebrats aquàtics' : 'INV_Aqua',
         'Rèptils' : 'REP',
+        'Macroalgues' : 'ALG',
+        'Mamífers': 'MAM',
+        'Peixos': 'PEI',
     }.get(grup_candidat,'')
 
 def get_idzonageografica_excepcio(via_candidat):
@@ -640,7 +655,8 @@ def genera_sentencies_llistat_exotiques(file,dir_resultats,cached_taxon_resoluti
         for num_fila in fails_codi_sp:
             fila = file_array[num_fila]
             print "Buscant idtaxon de " + fila[4] + "..."
-            idtaxon = get_id_invasora(fila[4])
+            #idtaxon = get_id_invasora(fila[4])
+            idtaxon = get_id_invasora_codi_oracle(fila[2])
             if idtaxon == '':
                 print fila[4] + " no te correspondencia a la taula de taxons "
                 print "Sentencia insert a sipan_mtaxon.taxon ---> " + get_insert_taula_mtaxon(fila)
@@ -684,6 +700,8 @@ def genera_sentencies_citacions(file,dir_resultats,cached_taxon_resolution_resul
         file_array = []
         reader = csv.reader(csvfile, delimiter=';', quotechar='"')
         row_num = 0
+
+        cached_taxon_resolution_results['Caulerpa cylindracea'] = 'Caul_race'
 
         #read file, save errors
         print("Llegint fitxer de dades ...")
@@ -813,73 +831,113 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
         reader = csv.reader(csvfile, delimiter=';', quotechar='"')
         row_num = 0
 
-        cached_taxon_resolution_results['Cyperus alternifolius subsp. flabelliformis']='Cype_alte'
-        cached_taxon_resolution_results['Elymus elongatus subsp. ponticus'] = 'Elym_elon'
-        cached_taxon_resolution_results['Oenothera biennis subsp. biennis'] = 'Oeno_bieb'
-        #cached_taxon_resolution_results['Senecio pseudolongifolius'] = ''
-        #cached_taxon_resolution_results['Iris orientalis'] = ''
-        cached_taxon_resolution_results['Echinochloa crus-galli']='FLORA003471'
+        cached_taxon_resolution_results['Echinochloa crus-galli'] = 'Echi_crus'
+        cached_taxon_resolution_results['Prunus domestica'] = 'Prun_dome'
+        cached_taxon_resolution_results['Corbicula fluminalis'] = 'Corb_flui'
+        cached_taxon_resolution_results['Ferrissia fragilis'] = 'Ferr_frag'
+        cached_taxon_resolution_results['Corbicula fluminea'] = 'Corb_flum'
+        cached_taxon_resolution_results['Aedes (Stegomyia) albopictus'] = 'Aede_albo'
+        cached_taxon_resolution_results['Cartodere (Aridius) bifasciata'] = 'Cart_bifa'
+        cached_taxon_resolution_results['Anas platyrhynchos var. domestica'] = 'Anas_plat'
+        cached_taxon_resolution_results['Anser anser var.domestica'] = 'Anse_anse'
+        cached_taxon_resolution_results['Anser anser var. domestica'] = 'Anse_anse'
+        cached_taxon_resolution_results['Cairina moschata var.domestica'] = 'Cair_mosc'
+        cached_taxon_resolution_results['Cairina moschata var. domestica'] = 'Cair_mosc'
+        cached_taxon_resolution_results['Columba livia var. domestica'] = 'Colu_livi'
+        cached_taxon_resolution_results['Melopsittacus undulatus var. domestica'] = 'Melo_undu'
+        cached_taxon_resolution_results['Nymphicus hollandicus var. domestica'] = 'Nymp_holl'
+        cached_taxon_resolution_results['Serinus canaria var. domestica'] = 'Seri_cana'
+        cached_taxon_resolution_results['Streptopelia roseogrisea var. domestica'] = 'Stre_rose'
+        cached_taxon_resolution_results['Amaranthus blitum subsp. emarginatus'] = 'Amar_blie'
+        cached_taxon_resolution_results['Beta vulgaris subsp. vulgaris'] = 'Beta_vulg'
+        cached_taxon_resolution_results['Crepis sancta subsp. sancta'] = 'Crep_sanc'
+        cached_taxon_resolution_results['Cyperus alternifolius subsp. flabelliformis'] = 'Cype_alte'
+        cached_taxon_resolution_results['Delphinium orientale subsp. orientale'] = 'Delp_orie'
         cached_taxon_resolution_results['Echinochloa crus-galli subsp. crus-galli'] = 'Echi_cruc'
-        cached_taxon_resolution_results['Echinochloa crus-galli subsp. oryzicola'] = 'Echi_cruo'
-        cached_taxon_resolution_results['Echinochloa crus-galli subsp. oryzoides'] = 'Echi_crur'
-        cached_taxon_resolution_results['Medicago sativa subsp. sativa'] = 'Medi_sati'
-        cached_taxon_resolution_results['Populus x canadensis'] = 'Popu_cana'
-        cached_taxon_resolution_results['Pyrus communis subsp. communis'] = 'Pyru_comm'
-        cached_taxon_resolution_results['Salix x rubens'] = 'Sali_rube'
         cached_taxon_resolution_results['Eleusine tristachya subsp. barcinonensis'] = 'Eleu_tris'
+        cached_taxon_resolution_results['Elymus elongatus subsp. ponticus'] = 'Elym_elon'
         cached_taxon_resolution_results['Eragrostis mexicana subsp. virescens'] = 'Erag_mexi'
-        cached_taxon_resolution_results['Pisum sativum'] = 'FLORA000498'
-        cached_taxon_resolution_results['Prunus domestica'] = '89'
-        cached_taxon_resolution_results['Ulex europaeus'] = '2639'
-        cached_taxon_resolution_results['Althaea hirsuta subsp. Longiflora'] = 'Alth_hirs'
+        cached_taxon_resolution_results['Hedera cf. algeriensis'] = 'Hede_alge'
         cached_taxon_resolution_results['Hesperis matronalis subsp. matronalis'] = 'Hesp_matr'
-        cached_taxon_resolution_results['Kalanchoe x houghtonii'] = 'Kala_houg'
-        cached_taxon_resolution_results['Asparagus asparagoides'] = 'Aspa_aspa'
+        cached_taxon_resolution_results['Lepidium virginicum subsp. virginicum'] = 'Lepi_virg'
+        cached_taxon_resolution_results['Linum usitatissimum subsp. usitatissimum'] = 'Linu_usit'
+        cached_taxon_resolution_results['Ludwigia peploides subsp. montevidensis'] = 'Ludw_pepl'
+        cached_taxon_resolution_results['Lunaria annua subsp. annua'] = 'Luna_annu'
+        cached_taxon_resolution_results['Medicago sativa subsp. sativa'] = 'Medi_sati'
+        cached_taxon_resolution_results['Melissa officinalis subsp. officinalis'] = 'Meli_offi'
+        cached_taxon_resolution_results['Oenothera biennis subsp. biennis'] = 'Oeno_bieb'
+        cached_taxon_resolution_results['Oenothera x oehlkersii'] = 'Oeno_oehl'
+        cached_taxon_resolution_results['Olea europaea var. europaea'] = 'Olea_euro'
         cached_taxon_resolution_results['Opuntia lindheimeri var. linguliformis'] = 'Opun_lind'
-        cached_taxon_resolution_results['Symphocarpus albus'] = 'Symp_albu'
-        cached_taxon_resolution_results['Cylindropuntia pallida'] = 'Cyli_tuni'
-        cached_taxon_resolution_results['Corbicula fluminalis'] = 'Corb_flum'
-        cached_taxon_resolution_results['Arcuatula senhousia'] = 'Musc_senh'
-        cached_taxon_resolution_results['Austrocylindropuntia subulata'] = 'Opun_subu'
-        cached_taxon_resolution_results['Dactylopius opuntiae'] = 'Dact_opun'
-        cached_taxon_resolution_results['Echinopsis eyriesii'] = 'Echi_eyri'
-        cached_taxon_resolution_results['Echinopsis schickendantzii'] = 'Echi_schi'
-        cached_taxon_resolution_results['Echinopsis spachiana'] = 'Echi_spac'
-        cached_taxon_resolution_results['Opuntia leucotricha'] = 'Opun_leuc'
-        cached_taxon_resolution_results['Opuntia phaeacantha'] = 'Opun_phae'
-        cached_taxon_resolution_results['Opuntia schickendantzii'] = 'Opun_schi'
-        cached_taxon_resolution_results['Opuntia tuna'] = 'Opun_tuna'
+        cached_taxon_resolution_results['Opuntia microdasys var. microdasys'] = 'Opun_micr'
+        cached_taxon_resolution_results['Oxalis debilis subsp. corymbosa'] = 'Oxal_debi'
+        cached_taxon_resolution_results['Panicum philadelphicum subsp. gattingeri'] = 'Pani_phil'
+        cached_taxon_resolution_results['Papaver somniferum subsp. somniferum'] = 'Papa_somn'
+        cached_taxon_resolution_results['Phalaris canariensis subsp. canariensis'] = 'Phal_cana'
+        cached_taxon_resolution_results['Platanus x hispanica'] = 'Plat_hisp'
+        cached_taxon_resolution_results['Populus x canadensis'] = 'Popu_cana'
+        cached_taxon_resolution_results['Solidago canadensis subsp. canadensis'] = 'Soli_canc'
+        cached_taxon_resolution_results['Ursinia nana subsp. nana'] = 'Ursi_nana'
+        cached_taxon_resolution_results['Veronica peregrina subsp. peregrina'] = 'Vero_pere'
+        cached_taxon_resolution_results['Xanthium echinatum subsp. italicum'] = 'Xant_echi'
+        cached_taxon_resolution_results['Xanthium echinatum subsp. Italicum'] = 'Xant_echi'
+        cached_taxon_resolution_results['Kalanchoe x houghtonii'] = 'Kala_houg'
+        cached_taxon_resolution_results['Berberis aquifolium'] = 'Maho_aqui'
         cached_taxon_resolution_results['Planorbella duryiduryi'] = 'Plan_dury'
-        cached_taxon_resolution_results['Hawaiia minuscula'] = 'Hawa_minu'
-        cached_taxon_resolution_results['Zonitoides arboreus'] = 'Zoni_arbo'
-        cached_taxon_resolution_results['Lymnaea stagnalis'] = 'Lymn_stag'
-        cached_taxon_resolution_results['Gibbula umbilicalis'] = 'Gibb_umbi'
-        cached_taxon_resolution_results['Gibbula cineraria'] = 'Gibb_cine'
-        cached_taxon_resolution_results['Phorcus lineatus'] = 'Phor_line'
-        cached_taxon_resolution_results['Littorina obtusata'] = 'Litt_obtu'
-        cached_taxon_resolution_results['Littorina littorea'] = 'Litt_litt'
-        cached_taxon_resolution_results['Nucella lapillus'] = 'Nuce_lapi'
-        cached_taxon_resolution_results['Anadara transversa'] = 'Anad_tran'
-        cached_taxon_resolution_results['Crepidula fornicata'] = 'Crep_forn'
-        cached_taxon_resolution_results['Crepipatella dilatata'] = 'Crep_dila'
-        cached_taxon_resolution_results['Pollia assimilis'] = 'Poll_assi'
         cached_taxon_resolution_results['Coronilla valentina subsp. glauca'] = 'Coro_vale'
         cached_taxon_resolution_results['Forsythia x intermedia'] = 'Fors_inte'
         cached_taxon_resolution_results['Helianthus x laetiflorus'] = 'Heli_laet'
         cached_taxon_resolution_results['Vitis x koberi'] = 'Viti_kobe'
         cached_taxon_resolution_results['Vitis x goliath'] = 'Viti_goli'
-        cached_taxon_resolution_results['Delairea odorata'] = 'Sene_mika'
-        cached_taxon_resolution_results['Berberis aquifolium'] = 'Maho_aqui'
         cached_taxon_resolution_results['Melia azederach'] = 'Meli_azed'
-        cached_taxon_resolution_results['Oenothera x oehlkersii'] = 'Oeno_oehl'
         cached_taxon_resolution_results['Physalis viscosa'] = 'Phys_fusc'
-        cached_taxon_resolution_results['Silene coronaria'] = 'Lych_coro'
         cached_taxon_resolution_results['Symphoricarpus albus'] = 'Symp_albu'
+        cached_taxon_resolution_results['Xiphophorus maculatus'] = 'Xiph_sp'
+
+        cached_taxon_resolution_results['Caulerpa cylindracea'] = 'Caul_race'
+        cached_taxon_resolution_results['Helix (Helix) lucorum'] = 'Heli_luco'
+        cached_taxon_resolution_results['Helix (Helix) melanostoma'] = 'Heli_mela'
+        cached_taxon_resolution_results['Lyctus (Xylotrogus) brunneus'] = 'Lyct_brun'
+        cached_taxon_resolution_results['Omosita (Saprobia) discoidea'] = 'Omos_disc'
+        cached_taxon_resolution_results['Paromalus (Isolomalus) luderti'] = 'Paro_lude'
+        cached_taxon_resolution_results['Pheidole indica'] = 'Phei_tene'
+        cached_taxon_resolution_results['Saprinus (Saprinus) lugens'] = 'Sapr_luge'
+        cached_taxon_resolution_results['Trachyopella (Trachyopella) straminea'] = 'Trac_stra'
+        cached_taxon_resolution_results['Tribolium (Stene) confusum'] = 'Trib_conf'
+        cached_taxon_resolution_results['Tribolium (Tribolium) castanaeum'] = 'Trib_cast'
+        cached_taxon_resolution_results['Gallus gallus var. domestica'] = 'Gall_gall'
+        cached_taxon_resolution_results['Varanus exanthematicus'] = 'Vara_exan'
+        cached_taxon_resolution_results['Allium paniculatum subsp. fuscum'] = 'Alli_pani'
+        cached_taxon_resolution_results['Althaea hirsuta subsp. Longiflora'] = 'Alth_hirs'
+        cached_taxon_resolution_results['Ammannia baccifera subsp. aegyptiaca'] = 'Amma_bacc'
+        cached_taxon_resolution_results['Brassica oleracea subsp. oleracea'] = 'Bras_oler'
+        cached_taxon_resolution_results['Camelina sativa subsp. rumelica'] = 'Came_sati'
+        cached_taxon_resolution_results['Cedrus libani subsp. atlantica'] = 'Cedr_liba'
+        cached_taxon_resolution_results['Convolvulus sabatius subsp. mauritanicus'] = 'Conv_saba'
+        cached_taxon_resolution_results['Convolvulus tricolor subsp. tricolor'] = 'Conv_tric'
+        cached_taxon_resolution_results['Cymbalaria muralis subsp. muralis'] = 'Cymb_mura'
+        cached_taxon_resolution_results['Echeveria cf. waltheri'] = 'Eche_walt'
+        cached_taxon_resolution_results['Echinochloa crus-galli subsp. hispidula'] = 'Echi_cruh'
+        cached_taxon_resolution_results['Echinochloa crus-galli subsp. oryzicola'] = 'Echi_cruo'
+        cached_taxon_resolution_results['Echinochloa crus-galli subsp. oryzoides'] = 'Echi_crur'
+        cached_taxon_resolution_results['Hypericum hircinum subsp. hircinum'] = 'Hype_hirc'
+        cached_taxon_resolution_results['Lens culinaris subsp. culinaris'] = 'Lens_culi'
+        cached_taxon_resolution_results['Leptochloa fusca subsp. uninervia'] = 'Lept_fusc'
+        cached_taxon_resolution_results['Levisticum officinale subsp. officinale'] = 'Levi_offi'
+        cached_taxon_resolution_results['Medicago arborea subsp. arborea'] = 'Medi_arbo'
+        cached_taxon_resolution_results['Oenothera biennis subsp. suaveolens'] = 'Oeno_bies'
+        cached_taxon_resolution_results['Phlomis purpurea subsp. purpurea'] = 'Phlo_purp'
+        cached_taxon_resolution_results['Picea abies subsp. abies'] = 'Pice_abie'
+        cached_taxon_resolution_results['Pyrus communis subsp. communis'] = 'Pyru_comm'
+        cached_taxon_resolution_results['Pyrus malus subsp. mitis'] = 'Pyru_malu'
+        cached_taxon_resolution_results['Raphanus raphanistrum subsp. sativus'] = 'Raph_raph'
+        cached_taxon_resolution_results['Salix x rubens'] = 'Sali_rube'
+        cached_taxon_resolution_results['Solidago canadensis subsp. altissima'] = 'Soli_cana'
+        cached_taxon_resolution_results['Solidago gigantea subsp. serotina'] = 'Soli_giga'
+        cached_taxon_resolution_results['Tritonia x crocosmiiflora'] = 'Trit_croc'
+        cached_taxon_resolution_results['Vicia villosa subsp. varia'] = 'Vici_vill'
         cached_taxon_resolution_results['Hermetia illuscens'] = 'Herm_illu'
         cached_taxon_resolution_results['Succinea (Calcisuccinea) sp'] = 'Succ_sp'
-        cached_taxon_resolution_results['Amelichloa caudata'] = 'Amel_caud'
-        cached_taxon_resolution_results['Xiphophorus maculatus'] = 'Xiph_sp'
-        cached_taxon_resolution_results['Eclipta prostrata'] = '10958'
 
         #read file, save errors
         print("Llegint fitxer de dades ...")
@@ -901,7 +959,7 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
 
         print("Intentant solventar problemes de codi especie")
         for rownum in fails_codi_sp:
-            sp_name = file_array[rownum][0].strip()
+            sp_name = file_array[rownum][0].replace('\xc2\xa0', ' ').strip()
             try:
                 id_spinvasora = cached_taxon_resolution_results[sp_name]
                 if id_spinvasora == '':
@@ -931,7 +989,7 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
         # arreglem problemes de ids
         for line_num in fails_codi_sp:
             try:
-                file_array[line_num][1] = cached_taxon_resolution_results[file_array[line_num][0].strip()]
+                file_array[line_num][1] = cached_taxon_resolution_results[file_array[line_num][0].replace('\xc2\xa0', ' ').strip()]
             except IndexError:
                 print str(line_num)
 
@@ -950,9 +1008,9 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
             if not line_num in fails_row_exists:
                 if not line_num in fails_row_exists:
                     clean_line = []
-                    clean_line.append(line[1])
-                    clean_line.append(line[3])
-                    clau = line[1] + '_' + line[3]
+                    clean_line.append(line[1].strip())
+                    clean_line.append(line[3].strip().upper())
+                    clau = line[1].strip() + '_' + line[3].strip().upper()
                     if not clau in repeticions:
                         inserts_file.write(plantilla_sql_insert.format(*clean_line))
                         inserts_file.write("\n")
@@ -964,17 +1022,16 @@ def genera_sentencies_presencia(file,dir_resultats,cached_taxon_resolution_resul
 def main():
     cached_taxon_resolution_results = {}
     #cached_taxon_resolution_results['Caulerpa cylindracea'] = 'Caul_race'
-    #file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_3/llistat_exotiques_exocat_dec_2017.csv'
-    file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/llistat_exotiques_exocat_dec_2018.csv'
-    #file_citacions = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/exocat_citacions_2018.csv'
-    #file_presencia_1_1 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/exocat_citacions_2018_utm_1_1.csv'
-    file_presencia_10_10 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/exocat_citacions_2018_utm_10_10.csv'
-    dir_resultats = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_5/'
+    file_llistat_exotiques = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_6/llistat_exotiques_exocat_dec_2018.csv'
+    file_citacions = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_6/exocat_citacions_2018.csv'
+    file_presencia_1_1 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_6/exocat_citacions_2018_utm_1_1.csv'
+    file_presencia_10_10 = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_6/exocat_citacions_2018_utm_10_10.csv'
+    dir_resultats = '/home/webuser/dev/python/carrega_dades_exocat/actualitzacio_dades_6/'
     #genera_sentencies_llistat_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_citacions(file_citacions,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_presencia(file_presencia_1_1, dir_resultats, cached_taxon_resolution_results,1)
-    #genera_sentencies_presencia(file_presencia_10_10, dir_resultats, cached_taxon_resolution_results, 10)
-    genera_sentencies_actualitzacio_estatus_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
+    genera_sentencies_presencia(file_presencia_10_10, dir_resultats, cached_taxon_resolution_results, 10)
+    #genera_sentencies_actualitzacio_estatus_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
 
 
 if __name__=='__main__':

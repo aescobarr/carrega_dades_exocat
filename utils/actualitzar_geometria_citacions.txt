@@ -1,0 +1,2 @@
+update citacions set geom=st_setsrid(st_point(utmx,utmy),23031);
+update citacions set geom_4326=st_transform(geom,4326);

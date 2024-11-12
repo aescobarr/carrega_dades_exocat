@@ -1,0 +1,7 @@
+config.py
+*.csv
+*.sql
+*.pyc
+.idea/*
+actualitzacio_dades_*/
+__pycache__

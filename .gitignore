@@ -5,3 +5,4 @@ config.py
 .idea/*
 actualitzacio_dades_*/
 __pycache__
+venv

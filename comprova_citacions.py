@@ -34,12 +34,15 @@ ID_GBIF = 44
 sinonims_grups = {
     "Diatomees":"ALG",
     "Algues":"ALG",
+    "Macroalgues":"ALG",
     "Amfibis":"AMF",
     "Fongs":"FON",
     "INV_Aqua":"INV_Aqua",
     "INV_Ter":"INV_terre",
+    "INV_terre":"INV_terre",
     "Mamífers":"MAM",
     "Ocells":"OCE",
+    "OCE":"OCE",
     "Peixos":"PEI",
     "Peixos marins":"PEIM",
     "Plantes":"PLA",
@@ -1826,10 +1829,12 @@ def main():
     # sed -i 's/Brom_will/Brom_cath/g' exocat_citacions_2023_utm_1_1.csv
     # sed -i 's/Cf3781/CF3781/g' exocat_citacions_2024_utm_1_1.csv
     # sed -i 's/CF49687/CF4968/g' exocat_citacions_2024_utm_1_1.csv
+    # sed -i 's/G3902/DG3902/g' exocat_citacions_2024_utm_1_1.csv
     # genera_sentencies_presencia_nou(file_presencia_1_1, dir_resultats,1)
     # sed -i 's/Gobi_loza/Gobi_luza/g' exocat_citacions_2024_utm_10_10.csv
     # sed -i 's/Misc_angu/Misg_angu/g' exocat_citacions_2024_utm_10_10.csv
     # sed -i 's/Sole_sen/Sole_sene/g' exocat_citacions_2024_utm_10_10.csv
+    # sed -i 's/CB90/CF90/g' exocat_citacions_2024_utm_10_10.csv
     genera_sentencies_presencia_nou(file_presencia_10_10, dir_resultats, 10)
     #genera_sentencies_actualitzacio_estatus_exotiques(file_llistat_exotiques,dir_resultats,cached_taxon_resolution_results)
     #genera_sentencies_actualitzacio_sinonims_exotiques(file_llistat_exotiques,dir_resultats)

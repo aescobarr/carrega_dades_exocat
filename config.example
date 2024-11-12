@@ -1,0 +1,12 @@
+params = dict(
+    db_host = "",
+    db_port = "",
+    db_name = "",
+    db_user = "",
+    db_password = "",
+    file_llistat_exotiques = "",
+    file_citacions = "",
+    file_presencia_1_1 = "",
+    file_presencia_10_10 = "",
+    dir_resultats = "",
+)
